@@ -1,61 +1,45 @@
-
 package com.example.interfazcompose.data.repository
 
-// Importa el DAO que permite consultar y guardar datos en SQLite.
 import com.example.interfazcompose.data.local.RoomDao
-// Importa la entidad que representa el estado actual de un probador.
 import com.example.interfazcompose.data.local.RoomEntity
-// Importa la entidad que representa cada atención del historial.
 import com.example.interfazcompose.data.local.RoomUsageEntity
-// Importa la interfaz de comunicación con el servidor existente.
 import com.example.interfazcompose.data.remote.FittingRoomApi
-// Importa el modelo utilizado para sincronizar estados.
 import com.example.interfazcompose.data.remote.RoomSyncRequest
-// Importa el modelo de negocio del probador.
 import com.example.interfazcompose.domain.model.FittingRoom
-// Importa el enum que define los estados posibles.
 import com.example.interfazcompose.domain.model.RoomStatus
-// Dispatcher utilizado para operaciones de entrada y salida.
 import kotlinx.coroutines.Dispatchers
-// Flow permite observar cambios en los datos.
 import kotlinx.coroutines.flow.Flow
-// map transforma los elementos de un flujo.
 import kotlinx.coroutines.flow.map
-// withContext cambia el contexto de una corrutina.
 import kotlinx.coroutines.withContext
-// Calendar permite trabajar con fechas y horas.
 import java.util.Calendar
 
-// class: Repository que conecta el ViewModel con la capa de datos.
+// REPOSITORY: conecta el ViewModel con Room (DAO) y la API.
 class FittingRoomRepository(
     private val dao: RoomDao, // DAO de Room/SQLite.
     private val api: FittingRoomApi // API existente del proyecto.
 ) {
 
-    // val: propiedad de solo lectura. // Flow<List<FittingRoom>>: flujo de listas de probadores.
-    // map: transforma RoomEntity en FittingRoom.
+    // FLOW: observa probadores de SQLite y los convierte al modelo.
     val rooms: Flow<List<FittingRoom>> =
         dao.observeAll().map { list ->
             list.map(RoomEntity::toDomain)
         }
 
-    // suspend fun: función suspendible, no inicia una corrutina. // seedIfEmpty(): crea los probadores iniciales si no existen.
+    // INICIALIZAR: crea 8 probadores solo si la base está vacía.
+    // SUSPEND: puede suspenderse; no crea una corrutina por sí sola.
     suspend fun seedIfEmpty() {
 
-        // isNotEmpty(): comprueba si SQLite ya contiene probadores. // return: termina la función para evitar duplicados.
+        // EVITAR DUPLICADOS: si ya hay probadores, termina.
         if (dao.getAll().isNotEmpty()) return
 
-        // Long: entero de 64 bits con la hora actual en milisegundos.
         val now: Long = System.currentTimeMillis()
 
-        // List<RoomEntity>: lista de entidades para guardar en SQLite. // (1..8): rango de ocho identificadores.
-        // map: transforma cada ID en una entidad.
+        // MAP: crea una entidad para cada probador del 1 al 8.
         val initialRooms: List<RoomEntity> = (1..8).map { id ->
 
-            // when: selecciona el estado inicial según el ID. // FittingRoom: modelo de negocio del probador.
+            // WHEN: define el estado inicial según el número.
             val room: FittingRoom = when (id) {
 
-                // Probador 1: ocupado inicialmente.
                 1 -> FittingRoom(
                     id,
                     "Probador %02d".format(id),
@@ -66,7 +50,6 @@ class FittingRoomRepository(
                     false
                 )
 
-                // Probador 2: ocupado inicialmente.
                 2 -> FittingRoom(
                     id,
                     "Probador %02d".format(id),
@@ -77,14 +60,12 @@ class FittingRoomRepository(
                     false
                 )
 
-                // Probador 8: comienza en limpieza.
                 8 -> FittingRoom(
                     id,
                     "Probador %02d".format(id),
                     RoomStatus.CLEANING
                 )
 
-                // else: los demás probadores quedan disponibles.
                 else -> FittingRoom(
                     id,
                     "Probador %02d".format(id),
@@ -92,42 +73,35 @@ class FittingRoomRepository(
                 )
             }
 
-            // from(): convierte el modelo en una entidad SQLite.
             RoomEntity.from(room)
         }
 
-        // Función suspend del DAO: guarda todos los probadores.
+        // DAO: guarda los probadores iniciales en Room/SQLite.
         dao.saveAll(initialRooms)
     }
 
-    // suspend fun: permite operaciones suspendibles. // Boolean: devuelve true si el bloque termina correctamente.
-    // runCatching: captura errores como un resultado de éxito o fallo.
+    // SINCRONIZAR: consulta la API e intenta combinar datos remotos y locales.
+    // RUNCATCHING: captura fallos y devuelve éxito o fracaso.
     suspend fun refreshFromServer(): Boolean = runCatching {
 
-        // Obtiene los probadores desde la API existente.
+        // API: solicita la lista de probadores al servidor.
         val remoteRooms = api.getRooms()
 
-        // isEmpty(): comprueba si la lista está vacía.
-        // return@runCatching: termina este bloque.
         if (remoteRooms.isEmpty()) return@runCatching
 
-        // associateBy: crea un mapa de probadores según su ID.
+        // ASSOCIATEBY: permite buscar probadores locales por ID.
         val localById = dao.getAll().associateBy { it.id }
 
-        // map: recorre y transforma los probadores recibidos.
         val merged = remoteRooms.map { remote ->
 
-            // Busca el probador local; puede ser null.
             val local = localById[remote.id]
 
-            // ?. permite acceder si local no es null.
-            // == true: comprueba si tiene sincronización pendiente.
+            // SYNC PENDING: detecta cambios locales aún no sincronizados.
             if (local?.syncPending == true) {
 
-                // runCatching: captura posibles errores de sincronización.
                 runCatching {
 
-                    // Función suspend: envía el estado del probador.
+                    // API: envía el estado del probador al servidor.
                     api.syncRoom(
                         local.id,
                         RoomSyncRequest(
@@ -140,11 +114,9 @@ class FittingRoomRepository(
                     )
 
                 }.fold(
-                    // onSuccess: se ejecuta si la sincronización funciona.
+                    // ÉXITO: usa la respuesta remota y conserva las fotos locales.
                     onSuccess = {
 
-                        // toDomain(): convierte a modelo.
-                        // copy(): conserva las rutas de fotografías locales.
                         RoomEntity.from(
                             it.toDomain().copy(
                                 occupancyPhotoPath = local.occupancyPhotoPath,
@@ -153,13 +125,12 @@ class FittingRoomRepository(
                         )
                     },
 
-                    // onFailure: conserva la entidad local si falla.
+                    // FALLO: conserva el registro local.
                     onFailure = { local }
                 )
 
             } else {
 
-                // Si no hay cambios pendientes, utiliza datos remotos.
                 RoomEntity.from(
                     remote.toDomain().copy(
                         occupancyPhotoPath = local?.occupancyPhotoPath,
@@ -169,12 +140,12 @@ class FittingRoomRepository(
             }
         }
 
-        // Función suspend: guarda los probadores obtenidos.
+        // DAO: guarda la lista combinada en SQLite.
         dao.saveAll(merged)
 
     }.isSuccess // Boolean: indica si runCatching terminó sin excepción.
 
-    // suspend fun: función suspendible para asignar prendas. // CREATE: crea una atención y cambia el estado del probador.
+    // ASIGNAR: valida, ocupa el probador y crea una atención histórica.
     suspend fun assign(
         room: FittingRoom, // Modelo del probador.
         itemCount: Int, // Cantidad de prendas, número entero.
@@ -182,33 +153,28 @@ class FittingRoomRepository(
         occupancyPhotoPath: String? = null // Ruta opcional; ? permite null.
     ) {
 
-        // require(): valida un argumento; falla si no cumple la condición.
+        // REQUIRE: rechaza cantidades de prendas menores o iguales a cero.
         require(itemCount > 0) {
             "La cantidad debe ser mayor que cero"
         }
 
-        // isNotBlank(): verifica que el texto no esté vacío.
+        // REQUIRE: obliga a ingresar una categoría.
         require(category.isNotBlank()) {
             "La categoría es obligatoria"
         }
 
-        // getAll(): consulta suspendible del DAO.
-        // firstOrNull(): busca el primer registro que coincida.
-        // ?: error(): lanza una excepción si no existe.
         val current: RoomEntity = dao.getAll()
             .firstOrNull { it.id == room.id }
             ?: error("Probador no encontrado")
 
-        // check(): valida el estado actual del sistema.
-        // .name: convierte el enum AVAILABLE a String.
+        // CHECK: solo permite asignar un probador disponible.
         check(current.status == RoomStatus.AVAILABLE.name) {
             "El probador no está disponible"
         }
 
-        // Long: almacena la fecha y hora de ingreso.
         val now: Long = System.currentTimeMillis()
 
-        // copy(): crea un nuevo modelo con los valores modificados.
+        // COPY: genera el nuevo estado sin alterar el objeto original.
         val updated: FittingRoom = room.copy(
             status = RoomStatus.OCCUPIED, // Enum: ocupado.
             startedAt = now, // Hora de ingreso.
@@ -219,11 +185,9 @@ class FittingRoomRepository(
             cleaningPhotoPath = null // Limpia la foto anterior.
         )
 
-        // Función suspend del DAO: actualiza el estado en SQLite.
-        // syncPending=true: indica un cambio local pendiente.
         dao.save(RoomEntity.from(updated, syncPending = true))
 
-        // Función suspend del DAO: inserta una atención histórica. // Cada inserción representa un nuevo uso del probador.
+        // HISTORIAL: registra una nueva atención en SQLite.
         dao.insertUsage(
             RoomUsageEntity(
                 roomId = room.id, // Int: identificador del probador.
@@ -234,33 +198,30 @@ class FittingRoomRepository(
         )
     }
 
-    // suspend fun: función suspendible de actualización. // UPDATE: corrige prendas sin generar otra atención.
+    // EDITAR: corrige prendas en el uso actual sin crear otra atención.
     suspend fun editItemCount(
         roomId: Int, // Identificador del probador.
         newItemCount: Int // Nueva cantidad de prendas.
     ) {
 
-        // require(): impide guardar cantidades inválidas.
+        // VALIDACIÓN: solo acepta una cantidad positiva.
         require(newItemCount > 0) {
             "La cantidad debe ser mayor que cero"
         }
 
-        // Consulta el probador actual mediante el DAO.
         val room: RoomEntity = dao.getAll()
             .firstOrNull { it.id == roomId }
             ?: error("Probador no encontrado")
 
-        // check(): permite editar solo cuando está ocupado. // .name: convierte OCCUPIED a String.
+        // CHECK: solo permite editar un probador ocupado.
         check(room.status == RoomStatus.OCCUPIED.name) {
             "Solo se pueden editar probadores en uso"
         }
 
-        // Consulta suspendible: obtiene la atención sin hora de salida.
+        // ATENCIÓN ACTIVA: busca el uso que aún no tiene salida.
         val usage: RoomUsageEntity = dao.getActiveUsage(roomId)
             ?: error("No existe una atención activa")
 
-        // save(): actualiza la cantidad visible del probador.
-        // copy(): mantiene los demás campos sin modificarlos.
         dao.save(
             room.copy(
                 itemCount = newItemCount,
@@ -268,7 +229,7 @@ class FittingRoomRepository(
             )
         )
 
-        // updateUsage(): modifica la atención existente. // wasEdited=true: indica que se corrigió el registro.
+        // HISTORIAL: actualiza la atención existente.
         dao.updateUsage(
             usage.copy(
                 itemCount = newItemCount,
@@ -277,103 +238,83 @@ class FittingRoomRepository(
         )
     }
 
-    // fun: función normal que devuelve un Flow. // READ: observa el historial diario de un probador.
+    // HISTORIAL: observa las atenciones de un probador en un día.
     fun observeDailyHistory(
         roomId: Int, // Identificador del probador.
         dayMillis: Long // Fecha seleccionada en milisegundos.
     ): Flow<List<RoomUsageEntity>> {
 
-        // Desestructuración: obtiene inicio y fin del día.
         val (start, end) = dayRange(dayMillis)
 
-        // Flow: emite listas nuevas cuando cambia el historial.
         return dao.observeDailyUsage(roomId, start, end)
     }
 
-    // fun: devuelve un Flow<Int> con el contador diario.
+    // CONTADOR: observa cuántas atenciones tuvo un probador.
     fun observeDailyCount(
         roomId: Int,
         dayMillis: Long
     ): Flow<Int> {
 
-        // Calcula el intervalo correspondiente al día.
         val (start, end) = dayRange(dayMillis)
 
-        // COUNT(*) se ejecuta mediante la consulta del DAO.
         return dao.observeDailyUsageCount(roomId, start, end)
     }
 
-    // fun: consulta las atenciones de todos los probadores.
+    // HISTORIAL GENERAL: observa todas las atenciones de un día.
     fun observeAllDailyHistory(
         dayMillis: Long
     ): Flow<List<RoomUsageEntity>> {
 
-        // Obtiene los límites del día seleccionado.
         val (start, end) = dayRange(dayMillis)
 
-        // Devuelve un flujo con las atenciones del día.
         return dao.observeAllDailyUsage(start, end)
     }
 
-    // private fun: función auxiliar, accesible solo en esta clase.
-    // Pair<Long, Long>: devuelve dos valores Long.
+    // FECHAS: calcula inicio del día y comienzo del siguiente.
     private fun dayRange(dayMillis: Long): Pair<Long, Long> {
 
-        // Calendar: objeto para manipular fechas locales.
         val calendar: Calendar = Calendar.getInstance()
 
-        // Establece la fecha que queremos consultar.
         calendar.timeInMillis = dayMillis
 
-        // set(): configura la hora a las 00:00:00.000.
         calendar.set(Calendar.HOUR_OF_DAY, 0)
         calendar.set(Calendar.MINUTE, 0)
         calendar.set(Calendar.SECOND, 0)
         calendar.set(Calendar.MILLISECOND, 0)
 
-        // Long: inicio del día seleccionado.
         val start: Long = calendar.timeInMillis
 
-        // add(): avanza un día en el calendario.
         calendar.add(Calendar.DAY_OF_MONTH, 1)
 
-        // Long: inicio del día siguiente.
         val end: Long = calendar.timeInMillis
 
-        // Pair(): agrupa los dos límites en un objeto.
         return Pair(start, end)
     }
 
-    // suspend fun: intenta sincronizar cambios pendientes.
+    // SINCRONIZACIÓN: envía cambios solo si están pendientes.
     suspend fun syncPendingRoom(roomId: Int) {
 
-        // Busca el probador local según su identificador.
         val local = dao.getAll()
             .firstOrNull { it.id == roomId }
             ?: return
 
-        // Si no hay cambios pendientes, termina la función.
         if (!local.syncPending) return
 
-        // Llama a otra función suspendible del repositorio.
         syncCurrentRoom(roomId, local)
     }
 
-    // private: función accesible solo dentro del Repository.
-    // suspend: puede suspenderse dentro de una corrutina.
+    // API: intenta sincronizar un probador sin perder sus fotos locales.
     private suspend fun syncCurrentRoom(
         roomId: Int,
         fallback: RoomEntity
     ) {
 
-        // runCatching: captura errores de la operación.
         runCatching {
 
-            // CORRUTINA: withContext cambia el contexto a Dispatchers.IO.
-            // Dispatchers.IO: operaciones de entrada y salida.
+            // WITHCONTEXT(IO): ejecuta esta operación de red en el dispatcher de E/S.
             withContext(Dispatchers.IO) {
 
-                // Función suspend: sincroniza el estado remoto.
+                // API: envía el estado del probador al servidor.
                 api.syncRoom(
                     roomId,
                     RoomSyncRequest(
@@ -388,8 +329,6 @@ class FittingRoomRepository(
 
         }.onSuccess { response ->
 
-            // onSuccess: se ejecuta si la operación fue exitosa.
-            // Conserva las fotografías locales.
             dao.save(
                 RoomEntity.from(
                     response.toDomain().copy(
@@ -401,61 +340,49 @@ class FittingRoomRepository(
         }
     }
 
-    // suspend fun: guarda la ruta de una fotografía de ocupación.
+    // FOTO OCUPACIÓN: guarda la ruta de la imagen en SQLite.
     suspend fun saveOccupancyPhoto(
         roomId: Int, // Identificador del probador.
         path: String // Ruta de la imagen.
     ) {
 
-        // Busca la entidad del probador; ?: return si no existe.
         val room = dao.getAll()
             .firstOrNull { it.id == roomId }
             ?: return
 
-        // copy(): modifica solo la ruta de la fotografía.
-        // save(): guarda la entidad actualizada en SQLite.
         dao.save(room.copy(occupancyPhotoPath = path))
     }
 
-    // suspend fun: guarda la fotografía de limpieza.
+    // FOTO LIMPIEZA: guarda la ruta de la imagen en SQLite.
     suspend fun saveCleaningPhoto(
         roomId: Int,
         path: String
     ) {
 
-        // Busca el probador mediante una consulta suspendible.
         val room = dao.getAll()
             .firstOrNull { it.id == roomId }
             ?: return
 
-        // Guarda la nueva ruta conservando los demás datos.
         dao.save(room.copy(cleaningPhotoPath = path))
     }
 
-    // suspend fun: finaliza una atención del probador.
-    // UPDATE: registra la salida y cambia el estado a limpieza.
+    // LIBERAR: registra la salida y pasa el probador a limpieza.
     suspend fun release(room: FittingRoom) {
 
-        // Obtiene el estado actual desde SQLite.
         val current: RoomEntity = dao.getAll()
             .firstOrNull { it.id == room.id }
             ?: error("Probador no encontrado")
 
-        // check(): comprueba que el probador esté ocupado.
-        // .name: convierte el enum OCCUPIED en String.
         check(current.status == RoomStatus.OCCUPIED.name) {
             "El probador no está ocupado"
         }
 
-        // RoomUsageEntity?: puede ser una atención o null.
-        // Busca el registro activo del probador.
+        // HISTORIAL: busca la atención que sigue abierta.
         val usage: RoomUsageEntity? = dao.getActiveUsage(room.id)
 
-        // != null: comprueba si existe una atención abierta.
         if (usage != null) {
 
-            // updateUsage(): registra la hora de salida.
-            // No elimina la atención del historial.
+            // HISTORIAL: actualiza la atención existente.
             dao.updateUsage(
                 usage.copy(
                     exitTime = System.currentTimeMillis()
@@ -463,7 +390,7 @@ class FittingRoomRepository(
             )
         }
 
-        // copy(): cambia el estado del probador a limpieza.
+        // COPY: genera el nuevo estado sin alterar el objeto original.
         val updated: FittingRoom = room.copy(
             status = RoomStatus.CLEANING,
             startedAt = null,
@@ -472,32 +399,28 @@ class FittingRoomRepository(
             alertSent = false
         )
 
-        // Función suspend: guarda el nuevo estado en SQLite.
         dao.save(RoomEntity.from(updated, syncPending = true))
     }
 
-    // suspend fun: finaliza la limpieza del probador.
+    // FIN LIMPIEZA: deja el probador disponible.
     suspend fun finishCleaning(room: FittingRoom) {
 
-        // copy(): cambia el estado a AVAILABLE.
+        // COPY: genera el nuevo estado sin alterar el objeto original.
         val updated: FittingRoom = room.copy(
             status = RoomStatus.AVAILABLE
         )
 
-        // Guarda el probador disponible en SQLite.
         dao.save(RoomEntity.from(updated, syncPending = true))
     }
 
-    // suspend fun: marca que la alerta ya fue enviada.
+    // ALERTA: marca que ya se notificó una ocupación prolongada.
     suspend fun markAlertSent(room: FittingRoom) {
 
-        // Boolean true: indica que la alerta fue enviada.
+        // COPY: genera el nuevo estado sin alterar el objeto original.
         val updated: FittingRoom = room.copy(
             alertSent = true
         )
 
-        // Guarda el cambio en la base de datos local.
         dao.save(RoomEntity.from(updated, syncPending = true))
     }
 }
-

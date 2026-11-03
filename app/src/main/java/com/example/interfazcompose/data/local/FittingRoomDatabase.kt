@@ -1,46 +1,18 @@
-
 package com.example.interfazcompose.data.local
 
-// Context permite acceder al contexto de la aplicación Android.
+// ROOM: herramientas para crear y administrar SQLite.
 import android.content.Context
-
-// Anotación que identifica la base de datos de Room.
 import androidx.room.Database
-
-// Clase utilizada para construir la base de datos.
 import androidx.room.Room
-
-// Clase base de las bases de datos Room.
 import androidx.room.RoomDatabase
-
-// Permite definir cambios entre versiones de SQLite.
 import androidx.room.migration.Migration
-
-// Permite ejecutar instrucciones SQL durante una migración.
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-/*
- * CLASE: FittingRoomDatabase
- *
- * CAPA: DATA / PERSISTENCIA LOCAL
- *
- * Esta clase administra la base de datos SQLite
- * utilizando la biblioteca Room.
- *
- * Contiene dos entidades:
- *
- * RoomEntity:
- * Guarda el estado actual de los probadores.
- *
- * RoomUsageEntity:
- * Guarda el historial de las atenciones.
- *
- * Se utiliza la versión 4 porque agregamos
- * una nueva tabla al esquema de la base de datos.
- */
+// CLASE: FittingRoomDatabase.
+// FUNCIÓN: configura la base de datos local y sus migraciones.
+// CONEXIÓN: entrega RoomDao al Repository para acceder a SQLite.
 
-// @Database identifica las entidades y versión de Room.
-// exportSchema = false evita exportar el esquema a archivos JSON.
+// DATABASE: registra las dos tablas y la versión actual.
 @Database(
     entities = [
         RoomEntity::class,
@@ -49,51 +21,22 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     version = 4,
     exportSchema = false
 )
-
-// abstract indica que esta clase no se instancia directamente.
-// RoomDatabase proporciona la infraestructura de persistencia.
 abstract class FittingRoomDatabase : RoomDatabase() {
 
-    /*
-     * Función abstracta que entrega el DAO.
-     *
-     * Room genera automáticamente su implementación.
-     *
-     * Retorna un objeto de tipo RoomDao.
-     */
+    // ROOMDAO: proporciona acceso a las consultas de SQLite.
+    // Room genera automáticamente su implementación.
     abstract fun roomDao(): RoomDao
 
-    /*
-     * companion object:
-     * Permite compartir propiedades y funciones
-     * asociadas a la clase.
-     *
-     * Aquí administramos las migraciones y la
-     * instancia única de la base de datos.
-     */
+    // COMPANION OBJECT: administra migraciones e instancia única.
     companion object {
 
-        /*
-         * MIGRACIÓN DE VERSIÓN 1 A 2
-         *
-         * Agrega la columna syncPending.
-         *
-         * INTEGER:
-         * Tipo numérico entero de SQLite.
-         *
-         * NOT NULL:
-         * Impide almacenar valores nulos.
-         *
-         * DEFAULT 0:
-         * Asigna cero a los registros existentes.
-         */
+        // MIGRATION 1→2: agrega la columna syncPending.
+        // DEFAULT 0: los registros anteriores quedan sin sincronización pendiente.
         private val MIGRATION_1_2 = object : Migration(1, 2) {
 
-            // override reemplaza la implementación
-            // de la función definida en Migration.
+            // MIGRATE: ejecuta los cambios del esquema SQLite.
             override fun migrate(db: SupportSQLiteDatabase) {
 
-                // execSQL ejecuta una instrucción SQL.
                 db.execSQL(
                     "ALTER TABLE fitting_rooms " +
                             "ADD COLUMN syncPending INTEGER NOT NULL DEFAULT 0"
@@ -101,17 +44,8 @@ abstract class FittingRoomDatabase : RoomDatabase() {
             }
         }
 
-        /*
-         * MIGRACIÓN DE VERSIÓN 2 A 3
-         *
-         * Agrega dos columnas opcionales para
-         * almacenar rutas de fotografías.
-         *
-         * TEXT corresponde a cadenas de texto.
-         *
-         * Al no declarar NOT NULL,
-         * estas columnas permiten valores nulos.
-         */
+        // MIGRATION 2→3: agrega rutas para fotografías.
+        // TEXT: permite guardar las rutas como texto o null.
         private val MIGRATION_2_3 = object : Migration(2, 3) {
 
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -128,24 +62,8 @@ abstract class FittingRoomDatabase : RoomDatabase() {
             }
         }
 
-        /*
-         * MIGRACIÓN DE VERSIÓN 3 A 4
-         *
-         * NUEVA FUNCIONALIDAD:
-         * Historial diario de uso de probadores.
-         *
-         * CREATE TABLE:
-         * Crea una tabla en SQLite.
-         *
-         * IF NOT EXISTS:
-         * Evita intentar crearla si ya existe.
-         *
-         * PRIMARY KEY AUTOINCREMENT:
-         * Genera identificadores únicos.
-         *
-         * Esta migración NO elimina la tabla
-         * fitting_rooms ni sus datos anteriores.
-         */
+        // MIGRATION 3→4: crea la tabla del historial de atenciones.
+        // CREATE TABLE: conserva los datos de los probadores existentes.
         private val MIGRATION_3_4 = object : Migration(3, 4) {
 
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -166,83 +84,45 @@ abstract class FittingRoomDatabase : RoomDatabase() {
             }
         }
 
-        /*
-         * @Volatile:
-         * Hace visibles los cambios de esta variable
-         * entre distintos hilos de ejecución.
-         *
-         * private:
-         * Solo se puede acceder desde esta clase.
-         *
-         * var:
-         * Variable mutable, puede cambiar.
-         *
-         * FittingRoomDatabase?:
-         * Puede almacenar una instancia de la base
-         * o null cuando todavía no se ha creado.
-         */
+        // VOLATILE: hace visible la instancia entre distintos hilos.
+        // INSTANCE: guarda la base de datos para reutilizarla.
         @Volatile
         private var instance: FittingRoomDatabase? = null
 
-        /*
-         * FUNCIÓN get()
-         *
-         * Recibe:
-         * context: Context
-         *
-         * Retorna:
-         * FittingRoomDatabase
-         *
-         * Implementa el patrón Singleton:
-         * mantiene una única instancia de la base
-         * de datos para toda la aplicación.
-         */
+        // GET: obtiene o crea la base de datos.
+        // SINGLETON: mantiene una sola instancia en la aplicación.
         fun get(context: Context): FittingRoomDatabase =
             instance ?: synchronized(this) {
 
-                // synchronized evita que varios hilos
-                // creen la base simultáneamente.
-
+                // SYNCHRONIZED: evita crear varias instancias simultáneas.
                 instance ?: Room.databaseBuilder(
 
-                    // Contexto de la aplicación.
+                    // APPLICATIONCONTEXT: contexto de toda la aplicación.
                     context.applicationContext,
 
-                    // Clase que representa la base de datos.
+                    // Clase que define la base de datos.
                     FittingRoomDatabase::class.java,
 
                     // Nombre del archivo SQLite.
                     "rincon_sur.db"
 
                 )
-                    /*
-                     * Registramos todas las migraciones.
-                     *
-                     * Room podrá actualizar bases
-                     * existentes desde versiones anteriores.
-                     */
+                    // ADDMIGRATIONS: registra los cambios entre versiones.
                     .addMigrations(
                         MIGRATION_1_2,
                         MIGRATION_2_3,
                         MIGRATION_3_4
                     )
 
-                    // build() construye la base de datos.
+                    // BUILD: construye la base de datos.
                     .build()
 
-                    /*
-                     * also permite ejecutar una acción
-                     * sobre el objeto recién construido.
-                     *
-                     * it representa esa instancia.
-                     *
-                     * Guardamos la instancia para
-                     * reutilizarla posteriormente.
-                     */
+                    // ALSO: guarda la instancia recién creada.
                     .also {
                         instance = it
                     }
             }
     }
 }
+
 

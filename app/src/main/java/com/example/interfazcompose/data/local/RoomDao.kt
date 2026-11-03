@@ -1,122 +1,56 @@
-
 package com.example.interfazcompose.data.local
 
-// Importaciones de Room para trabajar con SQLite.
+// ROOM: permite consultar, insertar y actualizar datos en SQLite.
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 
-// Flow permite observar cambios en los datos.
+// FLOW: observa cambios y emite datos actualizados.
 import kotlinx.coroutines.flow.Flow
 
-/*
- * ROOM DAO
- *
- * DAO significa Data Access Object.
- *
- * Esta interfaz contiene las operaciones que permiten
- * consultar, insertar y actualizar información en SQLite.
- *
- * Trabajamos con dos tablas:
- *
- * 1. fitting_rooms:
- *    Guarda el estado actual de cada probador.
- *
- * 2. fitting_room_usage:
- *    Guarda el historial de las atenciones realizadas.
- *
- * @Dao indica que Room debe generar automáticamente
- * la implementación de esta interfaz.
- */
-
+// CLASE: RoomDao (Data Access Object).
+// FUNCIÓN: administra los probadores y su historial en SQLite.
+// CONEXIÓN: el Repository utiliza este DAO para acceder a Room.
 @Dao
 interface RoomDao {
 
-    // =====================================================
-    // 1. OPERACIONES EXISTENTES DE LOS PROBADORES
-    // =====================================================
-
-    /*
-     * Devuelve todos los probadores ordenados por ID.
-     *
-     * Flow<List<RoomEntity>>:
-     * Es un flujo de listas de probadores.
-     *
-     * Cuando los datos cambian, Flow emite una nueva lista.
-     */
+    // OBSERVEALL: observa todos los probadores en tiempo real.
+    // FLOW: emite una nueva lista cuando cambian los datos.
     @Query("SELECT * FROM fitting_rooms ORDER BY id")
     fun observeAll(): Flow<List<RoomEntity>>
 
-    /*
-     * Obtiene todos los probadores una sola vez.
-     *
-     * suspend:
-     * Indica que esta función puede suspenderse
-     * sin bloquear el hilo de ejecución.
-     */
+    // GETALL: obtiene todos los probadores una sola vez.
+    // SUSPEND: permite ejecutar la consulta sin bloquear el hilo.
     @Query("SELECT * FROM fitting_rooms ORDER BY id")
     suspend fun getAll(): List<RoomEntity>
 
-    /*
-     * Guarda una lista de probadores.
-     *
-     * REPLACE:
-     * Si ya existe un registro con el mismo ID,
-     * se reemplaza por el nuevo.
-     */
+    // SAVEALL: guarda una lista de probadores.
+    // REPLACE: reemplaza registros que tengan el mismo ID.
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveAll(rooms: List<RoomEntity>)
 
-    /*
-     * Guarda o reemplaza un probador individual.
-     */
+    // SAVE: guarda o reemplaza un probador individual.
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun save(room: RoomEntity)
 
-
-    // =====================================================
-    // 2. OPERACIONES NUEVAS DEL HISTORIAL
-    // =====================================================
-
-    /*
-     * CREATE: INSERTAR UNA NUEVA ATENCIÓN
-     *
-     * Se ejecutará cuando un cliente ingrese
-     * a un probador disponible.
-     *
-     * Devuelve Long:
-     * El ID generado para la nueva atención.
-     */
+    // INSERTUSAGE: registra una nueva atención.
+    // CREATE: devuelve el ID generado para esa atención.
     @Insert
     suspend fun insertUsage(
         usage: RoomUsageEntity
     ): Long
 
-    /*
-     * UPDATE: ACTUALIZAR UNA ATENCIÓN
-     *
-     * Permite modificar:
-     * - La cantidad de prendas.
-     * - La hora de salida.
-     * - El indicador de edición.
-     *
-     * Room identifica el registro mediante
-     * su clave primaria: id.
-     */
+    // UPDATEUSAGE: modifica una atención existente.
+    // UPDATE: permite editar prendas o registrar la salida.
     @Update
     suspend fun updateUsage(
         usage: RoomUsageEntity
     )
 
-    /*
-     * READ: CONSULTAR UNA ATENCIÓN POR SU ID
-     *
-     * RoomUsageEntity?:
-     * El signo ? indica que puede devolver null
-     * si no existe el registro.
-     */
+    // GETUSAGEBYID: busca una atención por su identificador.
+    // NULL: devuelve null cuando no existe.
     @Query(
         "SELECT * FROM fitting_room_usage WHERE id = :usageId LIMIT 1"
     )
@@ -124,14 +58,8 @@ interface RoomDao {
         usageId: Long
     ): RoomUsageEntity?
 
-    /*
-     * CONSULTAR LA ATENCIÓN ACTIVA DE UN PROBADOR
-     *
-     * Busca una atención que todavía no tenga
-     * hora de salida.
-     *
-     * exitTime IS NULL significa que sigue abierta.
-     */
+    // GETACTIVEUSAGE: busca la última atención sin hora de salida.
+    // IS NULL: indica que la atención sigue abierta.
     @Query(
         """
         SELECT * FROM fitting_room_usage
@@ -145,15 +73,8 @@ interface RoomDao {
         roomId: Int
     ): RoomUsageEntity?
 
-    /*
-     * HISTORIAL DIARIO DE UN PROBADOR
-     *
-     * startTime: inicio del día.
-     * endTime: inicio del día siguiente.
-     *
-     * Se utiliza >= y < para evitar
-     * contar una atención en dos días.
-     */
+    // OBSERVEDAILYUSAGE: observa el historial diario de un probador.
+    // FLOW: actualiza la lista cuando cambian sus atenciones.
     @Query(
         """
         SELECT * FROM fitting_room_usage
@@ -169,14 +90,8 @@ interface RoomDao {
         endTime: Long
     ): Flow<List<RoomUsageEntity>>
 
-    /*
-     * CONTAR LOS USOS DIARIOS DE UN PROBADOR
-     *
-     * COUNT(*) cuenta las atenciones registradas.
-     *
-     * Una edición de prendas NO aumenta este contador,
-     * porque actualiza un registro existente.
-     */
+    // OBSERVEDAILYUSAGECOUNT: cuenta las atenciones del día.
+    // COUNT: editar prendas no aumenta la cantidad de usos.
     @Query(
         """
         SELECT COUNT(*) FROM fitting_room_usage
@@ -191,12 +106,8 @@ interface RoomDao {
         endTime: Long
     ): Flow<Int>
 
-    /*
-     * HISTORIAL DIARIO DE TODOS LOS PROBADORES
-     *
-     * Devuelve las atenciones realizadas durante
-     * el día, ordenadas desde la más reciente.
-     */
+    // OBSERVEALLDAILYUSAGE: observa el historial diario general.
+    // ORDER BY: muestra primero las atenciones más recientes.
     @Query(
         """
         SELECT * FROM fitting_room_usage
@@ -210,4 +121,5 @@ interface RoomDao {
         endTime: Long
     ): Flow<List<RoomUsageEntity>>
 }
+
 

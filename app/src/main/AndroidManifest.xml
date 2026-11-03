@@ -2,10 +2,16 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- INTERNET: conexión con el backend Spring Boot. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- NOTIFICACIONES: permiso para Android 13 o superior. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- VIBRATE: permite la vibración de confirmación. -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
+
+    <!-- APPLICATION: configuración general de la aplicación. -->
+    <!-- Permite HTTP, respaldos y define iconos y tema visual. -->
     <application
         android:usesCleartextTraffic="true"
         android:allowBackup="true"
@@ -16,17 +22,29 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.InterfazCompose">
+
+        <!-- ACTIVITY: MainActivity es la actividad principal. -->
+        <!-- EXPORTED: permite iniciarla desde el launcher. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.InterfazCompose">
+
+            <!-- INTENT-FILTER: configura el inicio de la app. -->
             <intent-filter>
+
+                <!-- MAIN: identifica la actividad principal. -->
                 <action android:name="android.intent.action.MAIN" />
 
+                <!-- LAUNCHER: permite abrir la app desde su icono. -->
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
+        <!-- FILEPROVIDER: comparte fotografías mediante URI. -->
+        <!-- CONEXIÓN: HomeScreen.kt y cámara del dispositivo. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
