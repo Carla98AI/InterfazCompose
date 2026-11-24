@@ -7,7 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 
-// FLOW: observa cambios y emite datos actualizados.
+// FLOW: observa cambios y emite datos actualizados..
 import kotlinx.coroutines.flow.Flow
 
 // CLASE: RoomDao (Data Access Object).

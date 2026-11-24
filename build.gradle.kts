@@ -20,7 +20,7 @@ plugins {
     // Permite configurar y compilar aplicaciones Android.
     alias(libs.plugins.android.application) apply false
 
-    // KOTLIN ANDROID:
+    // KOTLIN ANDROID.:
     // Permite utilizar Kotlin en el proyecto Android.
     alias(libs.plugins.kotlin.android) apply false
 

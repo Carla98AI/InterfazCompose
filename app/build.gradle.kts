@@ -10,7 +10,7 @@
  *
  * IMPORTANTE:
  * Define las versiones de Android y las librerías
- * necesarias para ejecutar el proyecto Rincón Sur.
+ * necesarias para ejecutar el proyecto Rincón Sur..
  */
 
 // PLUGINS: habilitan herramientas para construir la app.
