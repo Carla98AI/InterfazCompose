@@ -6,9 +6,9 @@ import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility // mostrar u ocultar tiempo uso de probador
+import androidx.compose.animation.animateColorAsState // generar transicion de color de fondo cuando cambia un estado
+import androidx.compose.animation.core.animateFloatAsState //porcentaje ocupacion
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
@@ -56,8 +56,8 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBar // importa la barra de navegacion
+import androidx.compose.material3.NavigationBarItem // importa sus elementos
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -101,6 +101,7 @@ import java.util.Date
 import java.util.Locale
 
 // ENUM: define las secciones disponibles en la navegación.
+// define los destinos
 private enum class Destination(val label: String) { HOME("Inicio"), ROOMS("Probadores"), ALERTS("Alertas"), HISTORY("Historial") }
 // ENUM: define los filtros de la lista de probadores.
 private enum class RoomFilter(val label: String) { ALL("Todos"), FREE("Libres"), OCCUPIED("Ocupados"), ALERT("En alerta") }
@@ -133,6 +134,10 @@ fun HomeScreen(rooms: List<FittingRoom>, now: Long, viewModel: FittingRoomViewMo
     var captureKind by remember { mutableStateOf<PhotoKind?>(null) }
     var captureFile by remember { mutableStateOf<File?>(null) }
     // CÁMARA: recibe el resultado y guarda la ruta mediante el ViewModel.
+    //Utilizamos la cámara nativa del dispositivo mediante ActivityResultContracts.TakePicture(),
+    // junto con FileProvider, que nos permite compartir de forma segura el archivo donde se
+    // almacenará la fotografía (133-151-167).
+
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
         val roomId = captureRoomId
         val kind = captureKind
@@ -213,7 +218,7 @@ fun HomeScreen(rooms: List<FittingRoom>, now: Long, viewModel: FittingRoomViewMo
             )
         },
         bottomBar = {
-            NavigationBar {
+            NavigationBar { //construye la barra de nevegacion.
                 availableDestinations.forEach { tab ->
                     val icon = when (tab) {
                         Destination.HOME -> Icons.Default.Dashboard
@@ -221,7 +226,8 @@ fun HomeScreen(rooms: List<FittingRoom>, now: Long, viewModel: FittingRoomViewMo
                         Destination.ALERTS -> Icons.Default.NotificationsActive
                         Destination.HISTORY -> Icons.Default.AccessTime
                     }
-                    NavigationBarItem(
+
+                    NavigationBarItem( //construye las opciones de navegacion.
                         selected = destination == tab,
                         onClick = { destination = tab },
                         icon = { Icon(icon, contentDescription = tab.label) },
@@ -233,7 +239,7 @@ fun HomeScreen(rooms: List<FittingRoom>, now: Long, viewModel: FittingRoomViewMo
         }
     ) { insets ->
         Column(Modifier.fillMaxSize().padding(insets)) {
-            when (destination) {
+            when (destination) {  //determina que pantalla mostar o cambio de pantallas
                 Destination.HOME -> DashboardScreen(rooms, now, onRooms = { destination = Destination.ROOMS })
                 Destination.ROOMS -> RoomsScreen(rooms, now, canManage = role == AppRole.ADMIN, onAssign = { assignRoom = it }, onEdit = { editRoom = it }, onRelease = { room ->
                     viewModel.release(room); DeviceFeedback.confirm(context)
@@ -597,10 +603,10 @@ private fun RoomCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                AnimatedVisibility(
+                AnimatedVisibility( //visibilidad del tiempo
                     visible = room.status == RoomStatus.OCCUPIED,
-                    enter = fadeIn(),
-                    exit = fadeOut()
+                    enter = fadeIn(),//aparicion gradual
+                    exit = fadeOut() //desaparicion gradual
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -724,7 +730,7 @@ private fun StatusPill(room: FittingRoom, now: Long) {
         else -> MaterialTheme.colorScheme.tertiaryContainer
     }
     // ANIMACIÓN: cambia el color cuando varía el estado.
-    val background by animateColorAsState(target, label = "estado")
+    val background by animateColorAsState(target, label = "estado") //cambio de color
     val foreground = when {
         warning -> MaterialTheme.colorScheme.onErrorContainer
         room.status == RoomStatus.AVAILABLE -> MaterialTheme.colorScheme.onPrimaryContainer

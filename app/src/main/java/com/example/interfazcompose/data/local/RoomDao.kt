@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 // CLASE: RoomDao (Data Access Object).
 // FUNCIÓN: administra los probadores y su historial en SQLite.
 // CONEXIÓN: el Repository utiliza este DAO para acceder a Room.
-@Dao
+@Dao //notacion que le permite a la interfaz comportarse como un DAO
 interface RoomDao {
 
     // OBSERVEALL: observa todos los probadores en tiempo real.

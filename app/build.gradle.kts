@@ -115,16 +115,16 @@ dependencies {
     // COMPOSE BOM: coordina versiones de librerías Compose.
     implementation(platform(libs.androidx.compose.bom))
 
-    // COMPOSE UI: componentes base de la interfaz.
+    // ANIMATIONCOMPOSE UI: componentes base de la interfaz.
     implementation(libs.androidx.compose.ui)
 
-    // GRAPHICS: herramientas gráficas para Compose.
+    // ANIMATION GRAPHICS: herramientas gráficas para Compose.
     implementation(libs.androidx.compose.ui.graphics)
 
     // PREVIEW: permite previsualizar interfaces.
     implementation(libs.androidx.compose.ui.tooling.preview)
 
-    // MATERIAL 3: componentes visuales de la aplicación.
+    // ANIMATION MATERIAL 3: componentes visuales de la aplicación.(importadas en home screen)
     implementation(libs.androidx.compose.material3)
 
     // ICONS: iconos para la interfaz de usuario.
@@ -162,7 +162,7 @@ dependencies {
     // ESPRESSO: pruebas de interacción con la interfaz.
     androidTestImplementation(libs.androidx.espresso.core)
 
-    // COMPOSE BOM: versiones coordinadas para pruebas.
+    // ANIMATION COMPOSE BOM: versiones coordinadas para pruebas.
     androidTestImplementation(
         platform(libs.androidx.compose.bom)
     )

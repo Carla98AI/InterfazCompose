@@ -43,7 +43,9 @@
         </activity>
 
 
-        <!-- FILEPROVIDER: comparte fotografías mediante URI. -->
+        <!-- FILEPROVIDER: Estamos declarando un proveedor de contenido llamado FileProvider,
+                           perteneciente a la biblioteca AndroidX, que permite compartir archivos
+                            mediante una URI segura. -->
         <!-- CONEXIÓN: HomeScreen.kt y cámara del dispositivo. -->
         <provider
             android:name="androidx.core.content.FileProvider"
