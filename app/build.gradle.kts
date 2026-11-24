@@ -6,7 +6,7 @@
  * Configura la compilación de la aplicación Android.
  *
  * CONEXIÓN:
- * Jetpack Compose, Room, WorkManager, Retrofit y Gson.
+ * Jetpack Compose, Room, WorkManager,camara(106) Retrofit y Gson.
  *
  * IMPORTANTE:
  * Define las versiones de Android y las librerías
@@ -103,13 +103,13 @@ android {
 // DEPENDENCIES: librerías utilizadas por la aplicación.
 dependencies {
 
-    // CORE KTX: funciones de Android adaptadas a Kotlin.
+    // CORE KTX(camara): funciones de Android adaptadas a Kotlin.
     implementation(libs.androidx.core.ktx)
 
     // LIFECYCLE: componentes vinculados al ciclo de vida.
     implementation(libs.androidx.lifecycle.runtime.ktx)
 
-    // ACTIVITY COMPOSE: integra Compose con MainActivity.
+    // ACTIVITY COMPOSE(camara): integra Compose con MainActivity.
     implementation(libs.androidx.activity.compose)
 
     // COMPOSE BOM: coordina versiones de librerías Compose.
